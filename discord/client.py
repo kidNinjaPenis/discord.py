@@ -155,7 +155,7 @@ class Client:
         connector = options.pop('connector', None)
         self.http = HTTPClient(connector, loop=self.loop)
 
-        self._closed = asyncio.Event(loop=self.loop)
+        self._closed = asyncio.Event(loop=self.loop, loopRepeat=False)
         self._is_logged_in = asyncio.Event(loop=self.loop)
         self._is_ready = asyncio.Event(loop=self.loop)
 
@@ -173,7 +173,7 @@ class Client:
         filename = hashlib.md5(email.encode('utf-8')).hexdigest()
         return os.path.join(tempfile.gettempdir(), 'discord_py', filename)
 
-    def _get_cache_token(self, email, password):
+    def _get_cache_token(self, email, password, token):
         try:
             log.info('attempting to login via cache')
             cache_file = self._get_cache_filename(email)
@@ -316,6 +316,7 @@ class Client:
     def dispatch(self, event, *args, **kwargs):
         log.debug('Dispatching event {}'.format(event))
         method = 'on_' + event
+        new_handler = 'new_handle_' + event
         handler = 'handle_' + event
 
         if hasattr(self, handler):
@@ -477,8 +478,7 @@ class Client:
             yield from self.ws.close()
 
 
-        yield from self.http.close()
-        self._closed.set()
+        yield from self._closed.set()
         self._is_ready.clear()
 
     @asyncio.coroutine
@@ -1925,7 +1925,7 @@ class Client:
         """
 
         if status is None:
-            status = 'online'
+            status = 'invisible'
         elif status is Status.offline:
             status = 'invisible'
         else:
@@ -2006,7 +2006,7 @@ class Client:
             if key not in options:
                 options[key] = getattr(channel, key)
 
-        yield from self.http.edit_channel(channel.id, **options)
+        yield from self.http.edit_channel(channel.id, *options)
 
     @asyncio.coroutine
     def move_channel(self, channel, position):
@@ -2281,7 +2281,7 @@ class Client:
         return Server(**data)
 
     @asyncio.coroutine
-    def edit_server(self, server, **fields):
+    def edit_server(self, server, *fields):
         """|coro|
 
         Edits a :class:`Server`.
